@@ -1,0 +1,367 @@
+package com.furr.MeCO;
+
+import android.app.AlertDialog;
+import android.content.Context;
+import android.content.DialogInterface;
+import android.content.Intent;
+import android.content.SharedPreferences;
+import android.graphics.Color;
+import android.hardware.Sensor;
+import android.hardware.SensorEvent;
+import android.hardware.SensorEventListener;
+import android.hardware.SensorManager;
+import android.os.Bundle;
+import android.os.Handler;
+import android.os.Vibrator;
+import android.support.v7.app.AppCompatActivity;
+import android.support.v7.widget.Toolbar;
+import android.util.Log;
+import android.view.Menu;
+import android.view.MenuItem;
+import android.view.View;
+import android.view.ViewGroup;
+import android.webkit.WebSettings;
+import android.webkit.WebView;
+import android.widget.Button;
+import android.widget.LinearLayout;
+import android.widget.TextView;
+
+import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
+import com.parse.ParseUser;
+
+import org.achartengine.ChartFactory;
+import org.achartengine.chart.PointStyle;
+import org.achartengine.model.XYMultipleSeriesDataset;
+import org.achartengine.model.XYSeries;
+import org.achartengine.renderer.XYMultipleSeriesRenderer;
+import org.achartengine.renderer.XYSeriesRenderer;
+
+import java.lang.reflect.Type;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
+
+import almadani.com.shared.AccelData;
+
+public class MainActivity extends AppCompatActivity implements SensorEventListener, View.OnClickListener {
+    public static final String MyPREFERENCES = "MyPrefs";
+    private static final int FROMAPP = 0;
+    SharedPreferences sharedpreferences;
+    private TextView txtXValue, txtYValue, txtZValue, txtXLabel;
+    private float ax;
+    private float ay;
+    private float az;
+    private double ArrZ_double[], ArrZ_Normalized[];
+    private Map<Integer, String> ResultsMap;
+    private long lastUpdate;
+    private Intent intent;
+    private LinearLayout SensorGraph;
+    private ArrayList DataFromPhone;
+    private Button BtnReadAccel;
+    private AccelAnalysis accelresult;
+
+    private ParseFunctions customParse; //for custom parse functions from ParseFunctions class
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_accelerometer);
+        Toolbar toolbar = findViewById(R.id.toolbar);
+        setSupportActionBar(toolbar);
+        txtXLabel = findViewById(R.id.txtXLabel);
+        ParseUser currentUser;
+        ResultsMap = new HashMap<>();
+        ResultsMap.put(0, getString(R.string.Normal));
+        ResultsMap.put(1, getString(R.string.Slight));
+        ResultsMap.put(2, getString(R.string.Mild));
+        ResultsMap.put(3, getString(R.string.Moderate));
+        ResultsMap.put(4, getString(R.string.Severe));
+
+        sharedpreferences = getSharedPreferences(MyPREFERENCES, Context.MODE_PRIVATE);
+        txtXValue = findViewById(R.id.txtXValue);
+        txtYValue = findViewById(R.id.txtYValue);
+        txtZValue = findViewById(R.id.txtZValue);
+        intent = new Intent();
+        SensorGraph = findViewById(R.id.Layout_Graph_Container);
+        DataFromPhone = new ArrayList();
+        BtnReadAccel = findViewById(R.id.read_btn);
+        BtnReadAccel.setOnClickListener(this);
+        accelresult = new AccelAnalysis();
+        currentUser = ParseUser.getCurrentUser();// проверить, если пользователь авторизировался
+        if (currentUser == null) {
+            loadLoginView();
+        }
+        txtXLabel.setText("Hi, "+currentUser.getUsername());
+        //Show help dialog ------------------------------------------------------------------------------
+        showHelpDialog();
+        //Get SensorManager and accelerometer
+        SensorManager mySensorManager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
+        if (mySensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER) != null) {
+            Sensor myAclmeter = mySensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
+            mySensorManager.registerListener(this, myAclmeter, SensorManager.SENSOR_DELAY_FASTEST);
+        } else {
+            Log.d("Accelerometer not found", "Accelerometer not found");
+        }
+        customParse = new ParseFunctions();
+    }
+    @Override
+    public void onSensorChanged(SensorEvent event) {
+        try {
+            if (event.sensor.getType() == Sensor.TYPE_ACCELEROMETER) {
+                long curTime = System.currentTimeMillis();
+                if ((curTime - lastUpdate) > 6) {
+                    lastUpdate = curTime;
+                    //Get accelerometer values
+                    ax = event.values[0];
+                    ay = event.values[1];
+                    az = event.values[2];
+                    AccelData data = new AccelData(curTime, ax, ay, az);
+                    DataFromPhone.add(data);
+                }
+                String x = String.format("%.1f", ax);
+                String y = String.format("%.1f", ay);
+                String z = String.format("%.1f", az);
+                //change display values
+                txtXValue.setText(x);
+                txtYValue.setText(y);
+                txtZValue.setText(z);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        getMenuInflater().inflate(R.menu.menu_main, menu);
+        return true;
+    }
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        int id = item.getItemId();
+        if (id == R.id.action_logout) {
+            ParseUser.logOut();
+            loadLoginView();
+        }
+        return super.onOptionsItemSelected(item);    }
+    @Override
+    protected void onPause() {
+        super.onPause();
+    }
+    @Override
+    public void onAccuracyChanged(Sensor sensor, int accuracy) {
+    }
+    @Override
+    protected void onResume() {
+        super.onResume();
+        processExtraData();
+    }
+    @Override
+    protected void onStart() {
+        super.onStart();
+    }
+    @Override
+    protected void onNewIntent(Intent intent) { //this will look for new intent even if activity is already open
+        super.onNewIntent(intent);
+        setIntent(intent); //get new intent, else old intent will be used
+        processExtraData();
+    }
+    private void processExtraData() {
+        //use the data received here
+        intent = getIntent();
+        int l = intent.getIntExtra("Read Data", 0);
+        Type type = new TypeToken<ArrayList<AccelData>>() {
+        }.getType();
+        Log.d("ff", "Intent value:" + l);
+    }  //ref: http://www.helloandroid.com/tutorials/communicating-between-running-activities
+    @Override
+    public void onClick(View v) {
+        switch (v.getId()) {
+            case R.id.read_btn:
+                ReadForAWhile(FROMAPP);
+                break;
+        }
+    }
+    //Рисоват графики_________________________________________________________________
+    private void openChart(ArrayList<AccelData> sensorData) {
+
+        if (sensorData != null && sensorData.size() > 0) {
+            long t = 0;
+            XYMultipleSeriesDataset dataset = null;
+            XYSeries xSeries = null;
+            XYSeries ySeries = null;
+            XYSeries zSeries = null;
+
+            t = sensorData.get(0).getTimestamp();
+            dataset = new XYMultipleSeriesDataset();
+            xSeries = new XYSeries("X");
+            ySeries = new XYSeries("Y");
+            zSeries = new XYSeries("Z");
+
+            for (AccelData data : sensorData) {
+                xSeries.add(data.getTimestamp() - t, data.getX());
+                ySeries.add(data.getTimestamp() - t, data.getY());
+                zSeries.add(data.getTimestamp() - t, data.getZ());
+            }
+
+            dataset.addSeries(xSeries);
+            dataset.addSeries(ySeries);
+            dataset.addSeries(zSeries);
+
+            XYSeriesRenderer xRenderer = new XYSeriesRenderer();
+            xRenderer.setColor(Color.RED);
+            xRenderer.setPointStyle(PointStyle.CIRCLE);
+            xRenderer.setFillPoints(true);
+            xRenderer.setLineWidth(1);
+            xRenderer.setDisplayChartValues(false);
+
+            XYSeriesRenderer yRenderer = new XYSeriesRenderer();
+            yRenderer.setColor(Color.GREEN);
+            yRenderer.setPointStyle(PointStyle.CIRCLE);
+            yRenderer.setFillPoints(true);
+            yRenderer.setLineWidth(1);
+            yRenderer.setDisplayChartValues(false);
+
+            XYSeriesRenderer zRenderer = new XYSeriesRenderer();
+            zRenderer.setColor(Color.BLUE);
+            zRenderer.setPointStyle(PointStyle.CIRCLE);
+            zRenderer.setFillPoints(true);
+            zRenderer.setLineWidth(1);
+            zRenderer.setDisplayChartValues(false);
+
+            XYMultipleSeriesRenderer multiRenderer = new XYMultipleSeriesRenderer();
+            multiRenderer.setXLabels(0);
+            multiRenderer.setLabelsColor(Color.RED);
+            multiRenderer.setChartTitle("t vs (x,y,z)");
+            multiRenderer.setXTitle("Sensor Data");
+            multiRenderer.setYTitle("Values of Acceleration");
+            multiRenderer.setZoomButtonsVisible(true);
+            multiRenderer.addSeriesRenderer(xRenderer);
+            multiRenderer.addSeriesRenderer(yRenderer);
+            multiRenderer.addSeriesRenderer(zRenderer);
+
+            View mChart = ChartFactory.getLineChartView(getBaseContext(), dataset,
+                    multiRenderer);
+            SensorGraph.addView(mChart);
+        }
+    }
+    //__________________________________________________________________________________________________________________________________
+    public void Read_Button() {
+        DataFromPhone = new ArrayList();
+        BtnReadAccel.setEnabled(false);
+    }
+
+    public void Show_Data() {
+        BtnReadAccel.setEnabled(true);
+        SensorGraph.removeAllViews(); //reset graph
+        //push accel data to Parse
+        ParseUser currentUser;
+        currentUser = ParseUser.getCurrentUser();//check if user logged in
+        String json = new Gson().toJson(DataFromPhone);
+        if (currentUser.getUsername() != null) {
+            customParse.pushParseData(ParseUser.getCurrentUser(), "AccelData", "ArrayList", json, "",
+                    sharedpreferences.getString("handtag", "")); //user pointer
+        }
+
+        openChart(DataFromPhone);
+        int handscore = 1;
+
+        ArrZ_double = ConvertToDoubleArr(DataFromPhone, DataFromPhone.size()); //convert to double array
+        double Mean = getMean();
+        ArrZ_Normalized = NormalizeArrayZ(ArrZ_double, Mean);
+        double VC = getVarCoeff();
+        Log.d("Variation Coefficient", VC + ""); //1
+        if (VC >= 1.58E-04 && VC < 3.26E-04) {
+            handscore = 1;
+            Log.d("VC", "Slight Tremor Detected"); //2
+        }//else if (VC >=3.26E-04 && VC<4.16E-03) {
+        else if (VC >= 3.26E-04 && VC < 8.16E-04) {
+            handscore = 2;
+            Log.d("VC", "Mild Tremor Detected"); //3
+        }//else if(VC>=4.16E-03 && VC<1.31E-02) {
+        else if (VC >= 8.16E-04 && VC < 5.31E-03) {
+            handscore = 3;
+            Log.d("VC", "Moderate Tremor Detected");//4
+        }//else if(VC>=1.31E-02) {
+        else if (VC >= 5.31E-03) {
+            handscore = 4;
+            Log.d("VC", "Severe Tremor Detected");//5
+        } else handscore = 0;
+        txtXLabel.setText("Тремор рук: " + ResultsMap.get(handscore));
+
+
+        BtnReadAccel.setText("Заново");
+        Vibrator vibe = (Vibrator) getApplicationContext().getSystemService(Context.VIBRATOR_SERVICE);
+        if (vibe != null) {
+            vibe.vibrate(500); // 50 is time in ms
+        }
+    }
+
+    public double[] ConvertToDoubleArr(ArrayList<AccelData> AD, int size) {
+        double ArrZ_d[] = new double[size];
+        for (int i = 0; i < size; i++) {
+            ArrZ_d[i] = AD.get(i).getZ(); //get Y-axis only
+        }
+        return ArrZ_d;
+    }
+
+    private double getVarCoeff() //returns coefficient of variation
+    {
+        Statistics s = new Statistics((ArrZ_Normalized));
+        return s.getVariance();
+    }
+
+    private double getMean() {
+        Statistics s = new Statistics((ArrZ_double));
+        return s.getMean();
+    }
+
+    //normalizes the values of a double array of accelerometer data to gravity "g"
+    private double[] NormalizeArrayZ(double[] Arr, double M) {
+        double ArrZ_d[] = new double[Arr.length];
+        for (int i = 0; i < Arr.length; i++) {
+            ArrZ_d[i] = (Arr[i]) / M; //get Z-axis only
+        }
+        return ArrZ_d;
+    }
+
+    public void ReadForAWhile(final int WhichSensor) {
+        Handler handler = new Handler();
+        Read_Button();
+        handler.postDelayed(new Runnable() {
+            public void run() {
+                if (WhichSensor == 0)
+                    Show_Data();
+                else if (WhichSensor == 1) {
+                    BtnReadAccel.setEnabled(false);
+                }
+            }
+        }, 10000);
+    }
+
+    public void showHelpDialog() {
+        WebView view = new WebView(MainActivity.this);
+        view.setLayoutParams(new ViewGroup.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT));
+        view.getSettings().setLayoutAlgorithm(WebSettings.LayoutAlgorithm.SINGLE_COLUMN);
+
+        AlertDialog alertDialog = new AlertDialog.Builder(MainActivity.this).create();
+        alertDialog.setView(view);
+        alertDialog.setTitle(getString(R.string.WTD));
+        alertDialog.setCancelable(false);
+        alertDialog.setMessage(getString(R.string.WTD_Accel));
+        alertDialog.setButton(AlertDialog.BUTTON_NEUTRAL, "OK",
+                new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface dialog, int which) {
+                        dialog.dismiss();
+                    }
+                });
+        alertDialog.show();
+        view.loadUrl("file:///android_asset/armhold.jpg");
+    }
+    public void loadLoginView() {
+        Intent intent = new Intent(this, Login.class); //go to login activity
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+        startActivity(intent);
+    }
+}

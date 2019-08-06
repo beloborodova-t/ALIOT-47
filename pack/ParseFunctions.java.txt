@@ -1,0 +1,119 @@
+package com.furr.MeCO;
+
+import android.util.Log;
+
+import com.google.gson.Gson;
+import com.google.gson.JsonSyntaxException;
+import com.google.gson.reflect.TypeToken;
+import com.parse.ParseException;
+import com.parse.ParseObject;
+import com.parse.ParseQuery;
+import com.parse.ParseUser;
+
+import java.lang.reflect.Type;
+import java.util.ArrayList;
+import java.util.List;
+
+import almadani.com.shared.AccelData;
+
+public class ParseFunctions {
+    public String result1; // добавляем больше результатов по мере необходимости
+    public ArrayList<String> resarr;
+    private Type type;
+    public ArrayList<Long> getParseData(ParseUser user, final String pointer, final String... params) // получить из Parse
+// 0: имя класса - 1: строка заказа - 2: имя столбца
+// пользователь: указатель на ParseUser (используйте ParseUser.getCurrentUser ())
+// вы можете добавить дополнительные параметры String при необходимости
+    {
+        ParseQuery<ParseObject> query = ParseQuery.getQuery(params[0]);
+        query.whereEqualTo("createdBy", user);
+        query.whereEqualTo("position", pointer);
+        query.orderByDescending(params[1]);         // обычно упорядочиваем по дате, чтобы получить последнюю строку данных
+        // добавляем дополнительные параметры запроса, если это необходимо (обязательно добавьте для этого параметры params [index]) ...
+        try {
+            List<ParseObject> results = query.find();
+            result1 = results.get(0).getString(params[2]);
+            type = new TypeToken<ArrayList<Long>>() {
+            }.getType();
+        } catch (ParseException e) {
+            e.printStackTrace();
+        }
+        try {
+            return new Gson().fromJson(result1, type);
+        } catch (JsonSyntaxException e) {
+            Log.d("ParseGSON", e.getMessage());
+            return null;
+        }
+    }
+
+    public ArrayList<Long> getParseData2(ParseUser user, final int listPointer, final String... params) //fetch from Parse
+    {
+        ParseQuery<ParseObject> query = ParseQuery.getQuery(params[0]);
+        query.whereEqualTo("createdBy", user);
+        query.orderByDescending(params[1]);
+        try {
+            List<ParseObject> results = query.find();
+            result1 = results.get(listPointer).getString(params[2]);
+            type = new TypeToken<ArrayList<Long>>() {
+            }.getType();
+        } catch (ParseException e) {
+            e.printStackTrace();
+        }
+        try {
+            return new Gson().fromJson(result1, type);
+        } catch (JsonSyntaxException e) {
+            Log.d("ParseGSON", e.getMessage());
+            return null;
+        }
+    }
+
+    public void pushParseData(ParseUser user, String... params) //upload to Parse single row
+    {
+        try {
+            ParseObject ob = new ParseObject(params[0]);
+            ob.put(params[1], params[2]);
+            ob.put("username", user.getUsername());
+            ob.put("createdBy", user);
+            ob.put("numoftaps", params[3]); //if not using taps just put "" [empty String]
+            ob.put("hand", params[4]);
+            ob.saveEventually();
+        } catch (Exception e) {
+            Log.d("ParseError", e.getMessage());
+        }
+    }
+    public ArrayList<AccelData> getParseDataAccel(ParseUser user, final int listPointer, final String... params) //fetch from Parse
+    {
+        ParseQuery<ParseObject> query = ParseQuery.getQuery(params[0]);
+        query.whereEqualTo("createdBy", user);
+        query.orderByDescending(params[1]);
+        try {
+            List<ParseObject> results = query.find();
+            result1 = results.get(listPointer).getString(params[2]);
+            type = new TypeToken<ArrayList<AccelData>>() {
+            }.getType();
+        } catch (ParseException e) {
+            e.printStackTrace();
+        }
+        try {
+            return new Gson().fromJson(result1, type);
+        } catch (JsonSyntaxException e) {
+            return null;
+        }
+    }
+    public ArrayList<String> getParseDataTappingCount(ParseUser user, final String... params) {
+        resarr = new ArrayList<>();
+        ParseQuery<ParseObject> query = ParseQuery.getQuery(params[0]);
+        query.whereEqualTo("createdBy", user);
+        query.orderByAscending("-createdAt,-position");
+        query.setLimit(10);
+        try {
+            List<ParseObject> results = query.find();
+            for (int i = 0; i < 10; i++) {
+                resarr.add(i, results.get(i).getString(params[2]));
+            }
+        } catch (ParseException e) {
+            e.printStackTrace();
+        }
+        return resarr;
+    }
+}

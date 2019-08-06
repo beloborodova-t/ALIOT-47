@@ -1,0 +1,21 @@
+package com.furr.MeCO;
+
+import android.app.Application;
+import com.parse.Parse;
+
+public class ParseApp extends Application {
+    @Override
+    public void onCreate() {// Add your initialization code here
+        super.onCreate();
+        Parse.enableLocalDatastore(this);
+        Parse.initialize(new Parse.Configuration.Builder(this)
+                .applicationId("5n02mAVr7gQcALJY9vAxbm5n0ChxDlSEbByvnRG8")  //
+                .clientKey("pJd39PBjXA2atgziBvSeZLhHSUdAT2x7FKfklPgl")      //брать на сайте
+                .server("https://parseapi.back4app.com/").build()           //
+        );
+//         ƒобавить на сервер тестовую запись
+//         ParseObject testObject = new ParseObject("TestObject");
+//         testObject.put("object1","Spiral");
+//         testObject.saveInBackground();
+    }
+}

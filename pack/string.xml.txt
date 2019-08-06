@@ -1,0 +1,43 @@
+<resources>
+    <string name="app_name"> TremTester </string>
+    <string name="title_activity_accelerometer"> Акселерометр </string>
+    <string name="txtXValue" />
+    <string name="txtYValue" />
+    <string name="txtZValue" />
+    <string name="acc_btn"> Тест на дрожание рук </string>
+    <string name="tv_shak"> Постоянный </string>
+    <string name="title_activity_login"> Вход </string>
+    <string name="btn_login"> Вход </string>
+    <string name="btn_signup"> Регистрация </string>
+    <string name="title_activity_signup"> Регистрация </string>
+    <string name="login_error_title"> АЛЯРМ! </string>
+    <string name="logout_label"> Выход </string>
+    <string name="signup_error_title"> АЛЯРМ </string>
+    <string name="signup_error_message"> Пожалуйста, заполните все поля </string>
+    <string name="user_info"> О пользователе </string>
+    <string name="taptest_btn"> Тест на нажатие </string>
+    <string name="title_activity_alternate_tapping"> Альтернативное нажатие </string>
+    <string name="results_btn"> Анализ результатов </string>
+    <string name="title_activity_results_analysis"> Результаты и Анализ </string>
+    <string name="btn_quest"> Анкета </string>
+    <string name="title_activity_questionnaire"> Вопросник </string>
+    <string name="tv_domhandinfo" />
+    <string name="about_label"> Информация </string>
+    <string name="Normal">Норма</string>
+    <string name="Slight">Слабое </string>
+    <string name="Mild">Среднее</string>
+    <string name="Moderate">Умеренное</string>
+    <string name="Severe">Значительное</string>
+    <string name="WTD">Что нужно?</string>
+    <string name="WTD_Accel">Держите руку прямо перед собой в течение 15 секунд</string>
+    <string name="start">Начать</string>
+    <string name="sample_using_phone_accelerometer">Будет использован акселерометер</string>
+    <string name="About_info">
+        Исследование умственной и физической активности человека.
+        \nМенеджер и дизайнер:
+        \n   Скуридина Т.Г.
+        \nПрограммист:
+        \n   Бережной А.В.
+    </string>
+    <string name="back">Назад</string>
+</resources>
